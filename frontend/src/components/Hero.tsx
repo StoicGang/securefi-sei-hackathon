@@ -25,7 +25,7 @@ const Hero: React.FC = () => {
             </h1>
             
             <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-2xl">
-              AssureFi combines smart contract analysis, liquidity monitoring, and social sentiment to provide you with the most comprehensive risk assessment tool in DeFi.
+              SecureFi combines smart contract analysis, liquidity monitoring, and social sentiment to provide you with the most comprehensive risk assessment tool in DeFi.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
@@ -54,7 +54,7 @@ const Hero: React.FC = () => {
                   <div className="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center mr-3">
                     <Shield className="h-5 w-5 text-brand" />
                   </div>
-                  <h3 className="font-semibold text-lg">AssureFi Protection</h3>
+                  <h3 className="font-semibold text-lg">SecureFi Protection</h3>
                 </div>
                 
                 <div className="space-y-3 mb-6">

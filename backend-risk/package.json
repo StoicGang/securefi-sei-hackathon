@@ -2,7 +2,7 @@
   "name": "backend-risk",
   "version": "1.0.0",
   "main": "index.js",
-  "type" : "module",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon app.js"
@@ -14,6 +14,7 @@
     "@google/generative-ai": "^0.24.0",
     "axios": "^1.8.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "fetch": "^1.1.0",
     "node": "^20.19.0",

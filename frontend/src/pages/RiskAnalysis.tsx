@@ -29,49 +29,59 @@ import RiskScoreCircle from "@/components/RiskScoreCircle";
 // Token data for dropdown selection
 const tokenData = [
   {
-    token_name: "orchest",
-    token_address: "hMpvoZTcApksJyJAXuX1HDDCCE4tEvMd2325vLfpump",
+    token_name: "SEIYAN",
+    token_address: "0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598",
     smart_contract_address: "0x4575f41308ec1483f3d399aa9a2826d74da13deb"
   },
   {
-    token_name: "yeye",
-    token_address: "9CMi4UyHbhhmoqcf6thKUWSZ6rAuwafQJd7u2CB8pump",
+    token_name: "FROG",
+    token_address: "0xF9BDbF259eCe5ae17e29Bf92EB7ABd78Bb465Db9",
     smart_contract_address: "0x36A500F731e2FFA29207499EFb29326b671000AC"
   },
   {
-    token_name: "HoodGold",
-    token_address: "AkfgYS26wK9xBmh9gtAGZ2umtVecJYa4co5NayqWpump",
+    token_name: "MILLI",
+    token_address: "0x9559E7E8BD227a7c4B4f5E807a815C5178Ee6dBE1",
     smart_contract_address: "akfgys26wk9xbmh9gtagz2umtvecjya4co5nayqwpump"
   },
   {
-    token_name: "SwastiCoin",
-    token_address: "9d1HfhQztyZszDCFS5p2zX6FzNkAPQogvuR3oerXpump",
+    token_name: "CHIPS",
+    token_address: "0xBd82f3bfE1dF0c84aEC88a22EbC34C9A8659Sdc",
     smart_contract_address: "9gyfbPVwwZx4y1hotNSLcqXCQNpNqqz6ZRvo8yTLpump"
   },
   {
-    token_name: "Ron",
-    token_address: "ALbCJ7r81tPuFYpG2hEwsrk6WXBz73xVyWty992Fpump",
+    token_name: "POPO THE CAT",
+    token_address: "0xC18b6a15F80ceaf5eB18696EeFCb5bc7b9107149",
     smart_contract_address: "0x23f043426b2336e723b32fb3bf4a1ca410f7c49a"
   },
   {
-    token_name: "jupyter",
-    token_address: "",
+    token_name: "Sei Less",
+    token_address: "0x8c5529ad032c48bc6413Df86edC83D260c8b079",
     smart_contract_address: "0x4B1E80cAC91e2216EEb63e29B957eB91Ae9C2Be8"
   },
   {
-    token_name: "Token OFFICIAL TRUMP",
-    token_address: "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+    token_name: "ISEI",
+    token_address: "0x5Cf6826140C1C56Ff49C808A1A75407Cd1DF9423",
     smart_contract_address: "0x576e2BeD8F7b46D34016198911Cdf9886f78bea7"
   },
   {
-    token_name: "Jito",
-    token_address: "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+    token_name: "WILSON",
+    token_address: "0x962Aae191622498BcA205c1c1B73E59aC7d295f2",
     smart_contract_address: "0x7fB1ee12Ca098aF9bE5313401d7fCC5c8d7968D8"
   },
   {
-    token_name: "Grass",
-    token_address: "Grass7B4RdKfBCjTKgSqnXkqjwiGvQyFbuSCUJr3XXjs",
+    token_name: "Seibacca",
+    token_address: "0x3eA30C06F48A6f696D3ba4b660C39DA96ed8f686",
     smart_contract_address: "0x42f0d280e1f4fb064650653445a3c904e61f64b1"
+  },
+  {
+    token_name: "HARD.on.sei",
+    token_address: "0xB13E945556f3F69187599f4eDc1982f24f1046a",
+    smart_contract_address: "0x4575f41308ec1483f3d399aa9a2826d74da13deb"
+  },
+  {
+    token_name: "INSPECTOR",
+    token_address: "0x6291148AE49e0f0d847b97C4E060E49D87638bA",
+    smart_contract_address: "0x36A500F731e2FFA29207499EFb29326b671000AC"
   }
 ];
 
@@ -91,6 +101,16 @@ const defaultData = {
     Average: { label: "Industry Average", color: "#3b82f6" }
   },
   ai_recommendations: []
+};
+
+// Map of icon names to components
+const iconMap = {
+  TrendingDown,
+  AlertTriangle,
+  Shield,
+  BarChart3,
+  FileSearch,
+  Activity
 };
 
 // Hardcoded risk score data
@@ -157,39 +177,77 @@ const RiskAnalysis = () => {
   const [data, setData] = useState(defaultData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [overallRisk, setOverallRisk] = useState(0);
 
   useEffect(() => {
     document.title = "Risk Analysis - AssureFi Guardian";
+    
+    // Optionally load initial data for the first token in the list
+    if (tokenData.length > 0) {
+      fetchRiskAnalysis(tokenData[0]);
+    }
   }, []);
+
+  // Update overall risk when riskData changes
+  useEffect(() => {
+    if (data.riskData && data.riskData.length > 0) {
+      const calculatedRisk = data.riskData.reduce((sum, item) => 
+        sum + (typeof item.risk === "number" ? item.risk : 0), 0) / data.riskData.length;
+      setOverallRisk(calculatedRisk);
+    }
+  }, [data.riskData]);
 
   // Function to fetch risk analysis data from the backend
   const fetchRiskAnalysis = async (token) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("https://risk-analysis-nzrq.onrender.com/risk-analysis", {
+      
+      // Update API endpoint to point to your local or deployed backend
+      const response = await fetch("http://localhost:5000/risk-analysis", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(token)
       });
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const riskAnalysisData = await response.json();
-      console.log(riskAnalysisData);
       
+      const riskAnalysisData = await response.json();
+      console.log("API Response:", riskAnalysisData);
+      
+      // Process the insightsList to convert string icon references to actual components
+      const processedInsights = riskAnalysisData.insightsList ? 
+        riskAnalysisData.insightsList.map(insight => {
+          // Extract the icon name from the string
+          const iconMatch = insight.icon.match(/<([A-Za-z]+)/);
+          const iconName = iconMatch ? iconMatch[1] : "AlertTriangle";
+          
+          // Replace the string with the actual component
+          insight.icon = iconMap[iconName] ? 
+            React.createElement(iconMap[iconName], { className: "h-5 w-5 text-amber-500" }) : 
+            React.createElement(AlertTriangle, { className: "h-5 w-5 text-amber-500" });
+          
+          return insight;
+        }) : defaultData.insightsList;
+      
+      // Update the state with the processed data
       setData({
         riskData: riskAnalysisData.riskData || defaultData.riskData,
-        insightsList: riskAnalysisData.insightsList || defaultData.insightsList,
+        insightsList: processedInsights,
         chartData: riskAnalysisData.chartData || defaultData.chartData,
         riskConfig: riskAnalysisData.riskConfig || defaultData.riskConfig,
         ai_recommendations: riskAnalysisData.ai_recommendations || defaultData.ai_recommendations
       });
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching risk analysis:", err);
       setError(err.message);
+      
+      // Set default data on error
+      setData(defaultData);
     } finally {
       setLoading(false);
     }
@@ -206,11 +264,7 @@ const RiskAnalysis = () => {
     fetchRiskAnalysis(token);
   };
 
-  // Calculate overall risk based on riskData values
-  const overallRisk =
-    typeof data.riskData[0].risk === "number"
-      ? data.riskData.reduce((sum, item) => sum + item.risk, 0) / data.riskData.length
-      : 0;
+  // Calculate risk text based on overall risk
   const overallRiskText =
     overallRisk > 60 ? "High Risk" : overallRisk > 40 ? "Medium-High Risk" : "Low Risk";
 
@@ -229,7 +283,7 @@ const RiskAnalysis = () => {
           <select
             className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={selectedTokenIndex}
-            onChange={(e) => setSelectedTokenIndex(Number(e.target.value))}
+            onChange={handleTokenChange}
           >
             {tokenData.map((token, index) => (
               <option 
@@ -261,7 +315,18 @@ const RiskAnalysis = () => {
             )}
           </button>
         </div>
-        {error && <div className="text-red-500 mt-2">Error: {error}</div>}
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+            <div className="flex gap-2 items-center">
+              <AlertTriangle className="h-5 w-5" />
+              <p className="font-medium">Error fetching risk analysis</p>
+            </div>
+            <p className="mt-1">{error}</p>
+            <p className="mt-2 text-sm">Using fallback display data instead.</p>
+          </div>
+        )}
       </div>
 
       {/* Risk Analysis Display */}
@@ -284,7 +349,7 @@ const RiskAnalysis = () => {
                 <Card className="w-64">
                   <CardContent className="p-6">
                     <RiskScoreCircle
-                      score={riskScores.overview.score}
+                      score={overallRisk || riskScores.overview.score}
                       title={riskScores.overview.title}
                       description={riskScores.overview.description}
                       size="lg"
@@ -293,16 +358,16 @@ const RiskAnalysis = () => {
                 </Card>
               </div>
 
-              {/* Main Risk Categories */}
+              {/* Risk Categories from API */}
               <div>
-                <h2 className="text-lg font-semibold mb-4">Main Risk Categories</h2>
+                <h2 className="text-lg font-semibold mb-4">Risk Categories</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {riskScores.categories.map((category, index) => (
+                  {data.riskData.map((category, index) => (
                     <Card key={index} className="p-6">
                       <RiskScoreCircle
-                        score={category.score}
-                        title={category.title}
-                        description={category.description}
+                        score={category.risk}
+                        title={category.category}
+                        description={`Risk assessment for ${category.category.toLowerCase()}`}
                         size="md"
                       />
                     </Card>
@@ -343,25 +408,31 @@ const RiskAnalysis = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {data.insightsList.map((insight, index) => (
-                <div key={index}>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {insight.icon}
-                    </div>
-                    <div>
-                      <h3 className="font-medium">{insight.title}</h3>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{insight.description}</p>
-                      <div className="mt-1">
-                        <span className="text-xs inline-block px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300">
-                          Source: {insight.action}
-                        </span>
+              {data.insightsList && data.insightsList.length > 0 ? (
+                data.insightsList.map((insight, index) => (
+                  <div key={index}>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">
+                        {insight.icon}
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{insight.title}</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{insight.description}</p>
+                        <div className="mt-1">
+                          <span className="text-xs inline-block px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300">
+                            Source: {insight.action}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    {index < data.insightsList.length - 1 && <Separator className="my-4" />}
                   </div>
-                  {index < data.insightsList.length - 1 && <Separator className="my-4" />}
+                ))
+              ) : (
+                <div className="p-4 text-center text-slate-500">
+                  <p>No insights available. Please analyze a token to see risk insights.</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -379,27 +450,35 @@ const RiskAnalysis = () => {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
-              <ChartContainer 
-                config={data.riskConfig}
-                className="h-full w-full"
-              >
-                <BarChart
-                  data={data.chartData}
-                  margin={{
-                    top: 20,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
+              {data.chartData && data.chartData.length > 0 ? (
+                <ChartContainer 
+                  config={data.riskConfig}
+                  className="h-full w-full"
                 >
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                  <Legend />
-                  <Bar dataKey="Risk" fill="#ef4444" name="Project Risk" />
-                  <Bar dataKey="Average" fill="#3b82f6" name="Industry Average" />
-                </BarChart>
-              </ChartContainer>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.chartData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                      <Legend />
+                      <Bar dataKey="Risk" fill="#ef4444" name="Project Risk" />
+                      <Bar dataKey="Average" fill="#3b82f6" name="Industry Average" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-500">
+                  <p>No chart data available. Please analyze a token to see trend data.</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

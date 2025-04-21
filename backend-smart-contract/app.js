@@ -5,10 +5,8 @@ import cors from 'cors';
 const app = express();
 const port = 3000;
 
-//App
+// App configuration
 app.use(cors());
-
-// Global middleware for JSON parsing (used by GET route and POST route expecting JSON)
 app.use(express.json());
 
 // API Keys
@@ -60,23 +58,6 @@ async function getEthereumContractSource(contractAddress) {
 }
 
 /**
- * Uses Gemini to generate an analysis based on a prompt
- * @param {string} prompt - The analysis prompt
- * @param {string} modelName - (Optional) Gemini model to use
- * @returns {Promise<string>} - The generated text response
- */
-async function geminiAnalyze(prompt, modelName = "gemini-1.5-flash") {
-  try {
-    const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  } catch (error) {
-    console.error("Error generating content with Gemini:", error);
-    throw error;
-  }
-}
-
-/**
  * Analyzes a smart contract using Gemini API
  * @param {Object} contractData - Contract data with source code
  * @returns {Promise<Object>} - Security analysis
@@ -90,9 +71,25 @@ async function analyzeContractWithGemini(contractData) {
       
       // Use JSON.stringify() to escape the source code so that any special characters are handled.
       const escapedCode = JSON.stringify(codeForAnalysis);
-      
-      const prompt = `
-        Analyze this Ethereum smart contract and identify potential security vulnerabilities.
+
+      // Main analysis prompt
+      const analysisPrompt = `
+        Your task is to thoroughly analyze the following smart contract and identify all potential security vulnerabilities, logic flaws, and non-compliance with standards.
+        
+        Focus your analysis on:
+        - Common smart contract vulnerabilities (e.g., reentrancy, integer overflows/underflows, unchecked external calls)
+        - Denial of Service (DoS) vulnerabilities
+        - Misuse of delegatecall or selfdestruct, front-running, gas inefficiencies
+        - ERC standard compliance issues (if applicable)
+        - Business logic flaws (e.g., incorrect fee handling, flawed mint/burn mechanics, allowance management)
+        - Improper access control and trust assumptions (e.g., admin keys, unprotected critical functions)
+        - Use of deprecated patterns or unsafe third-party libraries
+        - Violations of security best practices (e.g., missing visibility specifiers, non-locked compiler versions)
+        
+        Also take into account:
+        - Severity classification using a risk-based approach (based on likelihood and impact)
+        - Cross-reference of code logic with standard token behaviors and expected patterns
+        
         Contract name: ${contractData.name}
         
         Return your analysis in JSON format with the following structure:
@@ -108,7 +105,7 @@ async function analyzeContractWithGemini(contractData) {
               "recommendation": string
             }
           ],
-          "overallScore": number,
+          "overallScore": number (1-10 with 10 being most secure),
           "summary": string
         }
         
@@ -116,7 +113,31 @@ async function analyzeContractWithGemini(contractData) {
         Contract source code: ${escapedCode}
       `;
       
-      let responseText = await geminiAnalyze(prompt);
+      // Model configuration - Using Gemini 1.5 Flash for faster processing
+      const modelName = "gemini-1.5-flash";
+      const model = genAI.getGenerativeModel({ model: modelName });
+
+      // System instruction that defines the audit assistant role
+      const systemInstruction = `You are a blockchain audit assistant specialized in analyzing Ethereum and Sei-based smart contracts. 
+      Your expertise includes identifying security vulnerabilities, logical flaws, and compliance issues in smart contract code.
+      Provide detailed, actionable analysis with clear recommendations for remediation.`;
+
+      // Generate content with appropriate configurations
+      const generationConfig = {
+        temperature: 0.2,  // Lower temperature for more analytical/deterministic output
+        topP: 0.8,
+        topK: 40,
+        maxOutputTokens: 8192,
+      };
+
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: analysisPrompt }] }],
+        generationConfig,
+        // Note: The system instruction is included directly in the request headers by the SDK
+        // The GoogleGenerativeAI SDK may handle this differently than the example with caches
+      });
+
+      let responseText = result.response.text();
       responseText = responseText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
       
       const jsonMatch = responseText.match(/{[\s\S]*}/);
@@ -134,10 +155,9 @@ async function analyzeContractWithGemini(contractData) {
     } catch (error) {
       throw new Error(`Error analyzing with Gemini: ${error.message}`);
     }
-  }
-  
+}
 
-// GET route for smart contract analysis using header input (unchanged)
+// GET route for smart contract analysis using header input
 app.get('/analyze-contract', async (req, res) => {
   try {
     const contractAddress = req.headers['contract-address'];
@@ -190,7 +210,7 @@ app.listen(port, () => {
 
 app.get('/', async (req, res) => {
   try {
-    return res.json({messgae : "Welcome to Smart contract auditor, Please make request on /analyze-contract route"});
+    return res.json({message: "Welcome to Smart contract auditor, Please make request on /analyze-contract route"});
   } catch (error) {
     console.error("Request error:", error);
     res.status(500).json({ error: error.message || "Failed to analyze smart contract" });

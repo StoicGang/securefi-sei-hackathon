@@ -244,7 +244,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary">
               <Shield className="h-4 w-4 text-white" />
             </div>
-            <span className="font-display font-medium text-xl">AssureFi</span>
+            <span className="font-display font-medium text-xl">SecureFi</span>
           </Link>
         </div>
 

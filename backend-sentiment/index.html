@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Sentiment Analyzer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.0/plotly.min.js"></script>
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .alert-card {
+            border-left: 4px solid #dc3545;
+        }
+        .urgent-badge {
+            background-color: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        .positive {
+            color: #198754;
+        }
+        .negative {
+            color: #dc3545;
+        }
+        .neutral {
+            color: #6c757d;
+        }
+        .warning {
+            color: #fd7e14;
+        }
+        .message-row {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .message-row:last-child {
+            border-bottom: none;
+        }
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255,255,255,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Crypto Sentiment Analyzer</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="coinAnalysisLink">Coin Analysis</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <div class="position-relative" style="width: 200px;">
+                        <select id="coinSelector" class="form-select form-select-sm">
+                            <option value="">Select a coin...</option>
+                        </select>
+                    </div>
+                    <button id="refreshButton" class="btn btn-sm btn-outline-light ms-2">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Main Dashboard -->
+        <div id="dashboardView">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Sentiment Overview</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="sentimentChart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Topic Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="topicChart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Top Cryptocurrencies by Mentions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="coinChart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Message Volume Over Time</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="timeSeriesChart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card alert-card">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">
+                                Urgent Alerts
+                                <span id="urgentCount" class="urgent-badge ms-2">0</span>
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="urgentMessages" class="list-group list-group-flush">
+                                <div class="p-3 text-center text-muted">No urgent messages</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Latest Messages</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="latestMessages" class="list-group list-group-flush">
+                                <div class="p-3 text-center text-muted">No messages found</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coin Analysis View -->
+        <div id="coinAnalysisView" style="display: none;">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0" id="coinTitle">Coin Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted">Sentiment Score</h6>
+                                            <h2 id="coinSentimentScore">0.00</h2>
+                                            <div id="coinSentimentLabel" class="badge bg-secondary">Neutral</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted">Total Mentions</h6>
+                                            <h2 id="coinMentions">0</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted">Momentum</h6>
+                                            <h2 id="coinMomentum">0%</h2>
+                                            <div id="momentumTrend" class="text-muted">
+                                                <i class="bi bi-arrow-right"></i> No change
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">Sentiment Distribution</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="coinSentimentChart" style="height: 250px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">Top Topics</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="coinTopicsChart" style="height: 250px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="card-title mb-0">Gemini AI Insights</h6>
+                                            <button id="refreshInsightsBtn" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="aiInsightsLoading" class="text-center py-3" style="display: none;">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mt-2 text-muted">Generating AI insights...</p>
+                                            </div>
+                                            <div id="aiInsightsContent">
+                                                <h6 class="text-primary">Market Sentiment Summary</h6>
+                                                <p id="aiSummary" class="mb-4">No insights available. Please refresh to generate AI analysis.</p>
+                                                
+                                                <h6 class="text-success">Key Bullish Factors</h6>
+                                                <ul id="bullishFactors" class="mb-4">
+                                                    <li class="text-muted">No bullish factors identified</li>
+                                                </ul>
+                                                
+                                                <h6 class="text-danger">Risk Factors</h6>
+                                                <ul id="bearishFactors" class="mb-4">
+                                                    <li class="text-muted">No risk factors identified</li>
+                                                </ul>
+                                                
+                                                <h6 class="text-primary">Market Outlook</h6>
+                                                <p id="aiPrediction" class="mb-0">No prediction available</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="card-title mb-0">Latest News</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div id="coinLatestNews" class="list-group list-group-flush">
+                                                <div class="p-3 text-center text-muted">No news found</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let currentCoin = '';
+        let dashboardData = null;
+        const API_BASE_URL = 'http://localhost:5000'; 
+
+        
+        // DOM elements
+        const coinSelector = document.getElementById('coinSelector');
+        const refreshButton = document.getElementById('refreshButton');
+        const coinAnalysisLink = document.getElementById('coinAnalysisLink');
+        const dashboardView = document.getElementById('dashboardView');
+        const coinAnalysisView = document.getElementById('coinAnalysisView');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // Show loading overlay
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            // Disable interactive elements while loading
+            coinSelector.disabled = true;
+            document.getElementById('refreshButton').disabled = true;
+            document.getElementById('coinAnalysisLink').classList.add('disabled');
+        }
+
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            // Re-enable interactive elements
+            coinSelector.disabled = false;
+            document.getElementById('refreshButton').disabled = false;
+            document.getElementById('coinAnalysisLink').classList.remove('disabled');
+        }
+
+        // Format date string
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        // Get sentiment badge HTML
+        function getSentimentBadge(sentiment) {
+            const classes = {
+                'positive': 'bg-success',
+                'negative': 'bg-danger',
+                'neutral': 'bg-secondary',
+                'warning': 'bg-warning text-dark'
+            };
+            return `<span class="badge ${classes[sentiment] || 'bg-secondary'}">${sentiment}</span>`;
+        }
+
+        // Load available coins
+        async function loadCoins() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/coins`);
+                const coins = await response.json();
+                
+                // Clear and populate coin selector
+                coinSelector.innerHTML = '<option value="">Select a coin...</option>';
+                coins.forEach(coin => {
+                    const option = document.createElement('option');
+                    option.value = coin;
+                    option.textContent = coin.charAt(0).toUpperCase() + coin.slice(1);
+                    coinSelector.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading coins:', error);
+                showError('Failed to load coins. Please try again.', document.querySelector('.container-fluid'));
+                // Fallback to mock data
+                loadMockData();
+            }
+        }
+
+        // Modify loadDashboardData function
+        async function loadDashboardData(refresh = false) {
+            showLoading();
+            try {
+                if (!currentCoin) {
+                    // Show empty state for initial load
+                    const emptyState = '<div class="text-center text-muted p-5">Select a coin to view data</div>';
+                    document.getElementById('sentimentChart').innerHTML = emptyState;
+                    document.getElementById('topicChart').innerHTML = emptyState;
+                    document.getElementById('coinChart').innerHTML = emptyState;
+                    document.getElementById('timeSeriesChart').innerHTML = emptyState;
+                    document.getElementById('latestMessages').innerHTML = emptyState;
+                    document.getElementById('urgentMessages').innerHTML = emptyState;
+                    document.getElementById('urgentCount').textContent = '0';
+                    hideLoading();
+                    return;
+                }
+
+                // Build URL with coin parameter
+                const url = `${API_BASE_URL}/api/data?coin=${encodeURIComponent(currentCoin)}${refresh ? '&refresh=true' : ''}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Store the data globally
+                dashboardData = data;
+                
+                // Render dashboard visualizations
+                if (dashboardData) {
+                    renderSentimentChart();
+                    renderTopicChart();
+                    renderCoinChart();
+                    renderTimeSeriesChart();
+                    renderLatestMessages();
+                    renderUrgentMessages();
+                }
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showError('Failed to load dashboard data. Please try again.', document.querySelector('.container-fluid'));
+                
+                // Show empty state on error
+                const errorState = '<div class="text-center text-danger p-5">Failed to load data</div>';
+                document.getElementById('sentimentChart').innerHTML = errorState;
+                document.getElementById('topicChart').innerHTML = errorState;
+                document.getElementById('coinChart').innerHTML = errorState;
+                document.getElementById('timeSeriesChart').innerHTML = errorState;
+                document.getElementById('latestMessages').innerHTML = errorState;
+                document.getElementById('urgentMessages').innerHTML = errorState;
+                
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Update loadCoinAnalysis function
+        async function loadCoinAnalysis(coin) {
+            if (!coin) return;
+            
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/analyze?coin=${encodeURIComponent(coin)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Update UI with coin data
+                document.getElementById('coinTitle').textContent = `${coin.toUpperCase()} Analysis`;
+                
+                // Update sentiment score with color coding
+                const scoreElement = document.getElementById('coinSentimentScore');
+                const labelElement = document.getElementById('coinSentimentLabel');
+                scoreElement.textContent = data.sentiment_score.toFixed(2);
+                scoreElement.className = getSentimentClass(data.sentiment_score);
+                
+                // Update sentiment label with matching color
+                labelElement.textContent = data.sentiment_label;
+                labelElement.className = `badge ${getSentimentClass(data.sentiment_score)}`;
+                
+                document.getElementById('coinMentions').textContent = data.total_mentions.toLocaleString();
+                
+                // Update momentum with color coding
+                const momentum = data.momentum;
+                const momentumElement = document.getElementById('coinMomentum');
+                const momentumTrend = document.getElementById('momentumTrend');
+                
+                momentumElement.textContent = `${momentum}%`;
+                momentumElement.className = momentum >= 0 ? 'text-success' : 'text-danger';
+                
+                // Update momentum trend icon
+                momentumTrend.innerHTML = momentum >= 0 
+                    ? '<i class="bi bi-arrow-up-right text-success"></i> Increasing'
+                    : '<i class="bi bi-arrow-down-right text-danger"></i> Decreasing';
+                
+                // Update charts
+                renderCoinSentimentChart(data.sentiment_distribution);
+                renderCoinTopicsChart(data.topics);
+                
+                // Update news
+                renderCoinLatestNews(data.latest_news);
+                
+                // Load AI insights
+                await loadAIInsights(coin);
+                
+                hideLoading();
+            } catch (error) {
+                console.error('Error loading coin analysis:', error);
+                showError('Failed to load coin analysis. Please try again.', document.querySelector('.container-fluid'));
+                showDashboard(); // Revert to dashboard view on error
+            }
+        }
+
+        // Render sentiment distribution chart
+        function renderSentimentChart() {
+            const chartDiv = document.getElementById('sentimentChart');
+            if (!dashboardData || !dashboardData.sentiment_distribution) {
+                chartDiv.innerHTML = '<div class="text-center text-muted p-5">No sentiment data available</div>';
+                return;
+            }
+            
+            const sentData = dashboardData.sentiment_distribution;
+            const labels = Object.keys(sentData);
+            const values = Object.values(sentData);
+            const colors = {
+                'positive': '#198754',
+                'neutral': '#6c757d',
+                'negative': '#dc3545',
+                'warning': '#fd7e14'
+            };
+            
+            const data = [{
+                type: 'pie',
+                labels: labels,
+                values: values,
+                marker: {
+                    colors: labels.map(label => colors[label])
+                },
+                textinfo: 'label+percent',
+                insidetextorientation: 'radial'
+            }];
+            
+            const layout = {
+                margin: {t: 0, b: 0, l: 0, r: 0},
+                showlegend: true,
+                legend: {orientation: 'h', y: -0.1}
+            };
+            
+            Plotly.newPlot('sentimentChart', data, layout);
+        }
+
+        // Render topic distribution chart
+        function renderTopicChart() {
+            const chartDiv = document.getElementById('topicChart');
+            if (!dashboardData || !dashboardData.topic_distribution) {
+                chartDiv.innerHTML = '<div class="text-center text-muted p-5">No topic data available</div>';
+                return;
+            }
+            
+            const topicData = dashboardData.topic_distribution;
+            const sortedTopics = Object.entries(topicData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8); // Show top 8 topics
+            
+            const labels = sortedTopics.map(item => item[0]);
+            const values = sortedTopics.map(item => item[1]);
+            
+            const data = [{
+                type: 'bar',
+                x: labels,
+                y: values,
+                marker: {
+                    color: '#4e73df'
+                }
+            }];
+            
+            const layout = {
+                margin: {t: 20, b: 70, l: 60, r: 20},
+                xaxis: {
+                    tickangle: -45
+                }
+            };
+            
+            Plotly.newPlot('topicChart', data, layout);
+        }
+
+        // Render coin distribution chart
+        function renderCoinChart() {
+            const chartDiv = document.getElementById('coinChart');
+            if (!dashboardData || !dashboardData.coin_distribution) {
+                chartDiv.innerHTML = '<div class="text-center text-muted p-5">No distribution data available</div>';
+                return;
+            }
+            
+            const coinData = dashboardData.coin_distribution;
+            const sortedCoins = Object.entries(coinData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10); // Show top 10 coins
+            
+            const labels = sortedCoins.map(item => item[0]);
+            const values = sortedCoins.map(item => item[1]);
+            
+            const data = [{
+                type: 'bar',
+                x: labels,
+                y: values,
+                marker: {
+                    color: '#36b9cc'
+                }
+            }];
+            
+            const layout = {
+                margin: {t: 20, b: 70, l: 60, r: 20},
+                xaxis: {
+                    tickangle: -45
+                }
+            };
+            
+            Plotly.newPlot('coinChart', data, layout);
+        }
+
+        // Render time series chart
+        function renderTimeSeriesChart() {
+            const chartDiv = document.getElementById('timeSeriesChart');
+            if (!dashboardData || !dashboardData.time_series_data) {
+                chartDiv.innerHTML = '<div class="text-center text-muted p-5">No time series data available</div>';
+                return;
+            }
+            
+            const timeData = dashboardData.time_series_data;
+            
+            // Group by date and sentiment
+            const dateGroups = {};
+            timeData.forEach(item => {
+                if (!dateGroups[item.date]) {
+                    dateGroups[item.date] = {
+                        'positive': 0,
+                        'neutral': 0,
+                        'negative': 0,
+                        'warning': 0
+                    };
+                }
+                dateGroups[item.date][item.sentiment] = item.count;
+            });
+            
+            // Sort dates
+            const sortedDates = Object.keys(dateGroups).sort();
+            
+            // Create traces for each sentiment
+            const sentiments = ['positive', 'neutral', 'negative', 'warning'];
+            const colors = {
+                'positive': '#198754',
+                'neutral': '#6c757d',
+                'negative': '#dc3545',
+                'warning': '#fd7e14'
+            };
+            
+            const traces = sentiments.map(sentiment => ({
+                x: sortedDates,
+                y: sortedDates.map(date => dateGroups[date][sentiment]),
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: sentiment,
+                line: {
+                    color: colors[sentiment]
+                }
+            }));
+            
+            const layout = {
+                margin: {t: 20, b: 40, l: 60, r: 20},
+                legend: {orientation: 'h', y: -0.2}
+            };
+            
+            Plotly.newPlot('timeSeriesChart', traces, layout);
+        }
+
+        // Update renderLatestMessages function
+        function renderLatestMessages() {
+            const messagesContainer = document.getElementById('latestMessages');
+            if (!dashboardData || !dashboardData.latest_insights) {
+                messagesContainer.innerHTML = '<div class="p-3 text-center text-muted">No messages found</div>';
+                return;
+            }
+            
+            const insights = dashboardData.latest_insights;
+            
+            if (!insights || insights.length === 0) {
+                messagesContainer.innerHTML = '<div class="p-3 text-center text-muted">No messages found</div>';
+                return;
+            }
+            
+            messagesContainer.innerHTML = '';
+            insights.forEach(message => {
+                const div = document.createElement('div');
+                div.className = 'message-row p-3';
+                
+                const source = message.source === 'twitter' ? 
+                    '<span class="badge bg-info text-dark">Twitter</span>' : 
+                    '<span class="badge bg-primary">Telegram</span>';
+                
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div>
+                            ${source}
+                            ${getSentimentBadge(message.sentiment)}
+                            ${message.urgent ? '<span class="urgent-badge">URGENT</span>' : ''}
+                        </div>
+                        <small class="text-muted">${formatDate(message.timestamp)}</small>
+                    </div>
+                    <p class="mb-1">${message.message}</p>
+                    <div>
+                        <small class="text-muted">Channel: ${message.channel}</small>
+                        ${message.topics && message.topics.length > 0 ? 
+                            `<br><small class="text-muted">Topics: ${message.topics.join(', ')}</small>` : ''}
+                    </div>
+                `;
+                
+                messagesContainer.appendChild(div);
+            });
+        }
+
+        // Update renderUrgentMessages function
+        function renderUrgentMessages() {
+            const messagesContainer = document.getElementById('urgentMessages');
+            const urgentCount = document.getElementById('urgentCount');
+            if (!dashboardData || !dashboardData.latest_insights) {
+                messagesContainer.innerHTML = '<div class="p-3 text-center text-muted">No urgent messages</div>';
+                urgentCount.textContent = '0';
+                return;
+            }
+            
+            // Filter urgent messages
+            const urgentMessages = dashboardData.latest_insights.filter(msg => msg.urgent);
+            urgentCount.textContent = urgentMessages.length;
+            
+            if (urgentMessages.length === 0) {
+                messagesContainer.innerHTML = '<div class="p-3 text-center text-muted">No urgent messages</div>';
+                return;
+            }
+            
+            messagesContainer.innerHTML = '';
+            urgentMessages.forEach(message => {
+                const div = document.createElement('div');
+                div.className = 'message-row p-3';
+                
+                const source = message.source === 'twitter' ? 
+                    '<span class="badge bg-info text-dark">Twitter</span>' : 
+                    '<span class="badge bg-primary">Telegram</span>';
+                
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div>
+                            ${source}
+                            ${getSentimentBadge(message.sentiment)}
+                            <span class="urgent-badge">URGENT</span>
+                        </div>
+                        <small class="text-muted">${formatDate(message.timestamp)}</small>
+                    </div>
+                    <p class="mb-1">${message.message}</p>
+                    <div>
+                        <small class="text-muted">Channel: ${message.channel}</small>
+                        ${message.cryptocurrencies && message.cryptocurrencies.length > 0 ? 
+                            `<br><small class="text-muted">Coins: ${message.cryptocurrencies.join(', ')}</small>` : ''}
+                    </div>
+                `;
+                
+                messagesContainer.appendChild(div);
+            });
+        }
+
+        // Render coin sentiment chart
+        function renderCoinSentimentChart(sentimentData) {
+            const labels = Object.keys(sentimentData);
+            const values = Object.values(sentimentData);
+            const colors = {
+                'positive': '#198754',
+                'neutral': '#6c757d',
+                'negative': '#dc3545',
+                'warning': '#fd7e14'
+            };
+            
+            const data = [{
+                type: 'pie',
+                labels: labels,
+                values: values,
+                marker: {
+                    colors: labels.map(label => colors[label])
+                },
+                textinfo: 'label+percent',
+                insidetextorientation: 'radial'
+            }];
+            
+            const layout = {
+                margin: {t: 0, b: 0, l: 0, r: 0},
+                showlegend: true,
+                legend: {orientation: 'h', y: -0.1}
+            };
+            
+            Plotly.newPlot('coinSentimentChart', data, layout);
+        }
+
+        // Render coin topics chart
+        function renderCoinTopicsChart(topicsData) {
+            if (!topicsData || Object.keys(topicsData).length === 0) {
+                document.getElementById('coinTopicsChart').innerHTML = '<div class="p-3 text-center text-muted">No topic data available</div>';
+                return;
+            }
+            
+            const sortedTopics = Object.entries(topicsData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8); // Show top 8 topics
+            
+            const labels = sortedTopics.map(item => item[0]);
+            const values = sortedTopics.map(item => item[1]);
+            
+            const data = [{
+                type: 'bar',
+                x: labels,
+                y: values,
+                marker: {
+                    color: '#4e73df'
+                }
+            }];
+            
+            const layout = {
+                margin: {t: 20, b: 70, l: 60, r: 20},
+                xaxis: {
+                    tickangle: -45
+                }
+            };
+            
+            Plotly.newPlot('coinTopicsChart', data, layout);
+        }
+
+        // Render coin latest news
+        function renderCoinLatestNews(newsData) {
+            const newsContainer = document.getElementById('coinLatestNews');
+            
+            if (!newsData || newsData.length === 0) {
+                newsContainer.innerHTML = '<div class="p-3 text-center text-muted">No news found</div>';
+                return;
+            }
+            
+            newsContainer.innerHTML = '';
+            newsData.forEach(message => {
+                const div = document.createElement('div');
+                div.className = 'message-row p-3';
+                
+                        const source = message.source === 'twitter' ? 
+                            '<span class="badge bg-info text-dark">Twitter</span>' : 
+                            '<span class="badge bg-primary">Telegram</span>';
+                        
+                        div.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <div>
+                                    ${source}
+                                    ${getSentimentBadge(message.sentiment)}
+                                    ${message.urgent ? '<span class="urgent-badge">URGENT</span>' : ''}
+                                </div>
+                                <small class="text-muted">${formatDate(message.timestamp)}</small>
+                            </div>
+                            <p class="mb-1">${message.message}</p>
+                            <div>
+                                <small class="text-muted">Channel: ${message.channel}</small>
+                                ${message.topics && message.topics.length > 0 ? 
+                                    `<br><small class="text-muted">Topics: ${message.topics.join(', ')}</small>` : ''}
+                            </div>
+                        `;
+                        
+                        newsContainer.appendChild(div);
+                    });
+                }
+function renderCoinLatestNews(newsData) {
+    const newsContainer = document.getElementById('coinLatestNews');
+    
+    if (!newsData || newsData.length === 0) {
+        newsContainer.innerHTML = '<div class="p-3 text-center text-muted">No news found</div>';
+        return;
+    }
+    
+    newsContainer.innerHTML = '';
+    newsData.forEach(message => {
+        const div = document.createElement('div');
+        div.className = 'message-row p-3';
+        
+        const source = message.source === 'twitter' ? 
+            '<span class="badge bg-info text-dark">Twitter</span>' : 
+            '<span class="badge bg-primary">Telegram</span>';
+        
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start mb-1">
+                <div>
+                    ${source}
+                    ${getSentimentBadge(message.sentiment)}
+                    ${message.urgent ? '<span class="urgent-badge">URGENT</span>' : ''}
+                </div>
+                <small class="text-muted">${formatDate(message.timestamp)}</small>
+            </div>
+            <p class="mb-1">${message.message}</p>
+            <div>
+                <small class="text-muted">Channel: ${message.channel}</small>
+                ${message.topics && message.topics.length > 0 ? 
+                    `<br><small class="text-muted">Topics: ${message.topics.join(', ')}</small>` : ''}
+            </div>
+        `;
+        
+        newsContainer.appendChild(div);
+    });
+}
+async function loadAIInsights(coin) {
+    if (!coin) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sentiment?token=${encodeURIComponent(coin)}`);
+        const data = await response.json();
+        
+        // Get AI insights from response
+        const insights = data.ai_insights;
+        
+        // Update UI with insights
+        const summaryElement = document.getElementById('aiSummary');
+        const bullishFactorsElement = document.getElementById('bullishFactors');
+        const bearishFactorsElement = document.getElementById('bearishFactors');
+        const predictionElement = document.getElementById('aiPrediction');
+        
+        // Update summary
+        summaryElement.textContent = insights.summary || 'No summary available';
+        
+        // Update bullish factors
+        if (insights.key_factors && insights.key_factors.length > 0) {
+            bullishFactorsElement.innerHTML = '';
+            insights.key_factors.forEach(factor => {
+                const li = document.createElement('li');
+                li.textContent = factor.text;
+                
+                // Apply different styling based on factor type
+                if (factor.type === 'bullish') {
+                    li.className = 'text-success';
+                } else {
+                    li.className = 'text-dark';
+                }
+                
+                bullishFactorsElement.appendChild(li);
+            });
+        } else {
+            bullishFactorsElement.innerHTML = '<li class="text-muted">No bullish factors identified</li>';
+        }
+        
+        // Update bearish factors
+        if (insights.risk_factors && insights.risk_factors.length > 0) {
+            bearishFactorsElement.innerHTML = '';
+            insights.risk_factors.forEach(factor => {
+                const li = document.createElement('li');
+                li.textContent = factor.text;
+                
+                // Apply different styling based on factor type
+                if (factor.type === 'bearish') {
+                    li.className = 'text-danger';
+                } else {
+                    li.className = 'text-warning';
+                }
+                
+                bearishFactorsElement.appendChild(li);
+            });
+        } else {
+            bearishFactorsElement.innerHTML = '<li class="text-muted">No risk factors identified</li>';
+        }
+        
+        // Update prediction
+        predictionElement.textContent = insights.prediction || 'No prediction available';
+        
+    } catch (error) {
+        console.error('Error loading AI insights:', error);
+        showError('Failed to load AI insights. Please try again.', document.querySelector('.container-fluid'));
+        document.getElementById('aiSummary').textContent = 'Error loading AI insights. Please try again.';
+        document.getElementById('bullishFactors').innerHTML = '<li class="text-muted">Error loading factors</li>';
+        document.getElementById('bearishFactors').innerHTML = '<li class="text-muted">Error loading factors</li>';
+        document.getElementById('aiPrediction').textContent = 'Unavailable';
+    } finally {
+        // Hide loading indicator
+        document.getElementById('aiInsightsLoading').style.display = 'none';
+        document.getElementById('aiInsightsContent').style.display = 'block';
+    }
+}
+
+// Switch between views
+function showDashboard() {
+    dashboardView.style.display = 'block';
+    coinAnalysisView.style.display = 'none';
+    currentCoin = '';
+}
+
+function showCoinAnalysis(coin) {
+    if (!coin) return;
+    dashboardView.style.display = 'none';
+    coinAnalysisView.style.display = 'block';
+    currentCoin = coin;
+    loadCoinAnalysis(coin);
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Load initial data
+    loadCoins();
+    loadDashboardData();
+    
+    // Set up event listeners
+    refreshButton.addEventListener('click', () => {
+        if (currentCoin) {
+            coinSelector.value = currentCoin;  // Preserve selected coin
+            loadCoinAnalysis(currentCoin);
+        } else {
+            loadDashboardData(true);
+        }
+    });
+
+    const refreshInsightsBtn = document.getElementById('refreshInsightsBtn');
+    if (refreshInsightsBtn) {
+        refreshInsightsBtn.addEventListener('click', () => {
+            if (currentCoin) {
+                // Force refresh data first
+                fetch('/api/refresh_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token: currentCoin })
+                })
+                .then(() => loadAIInsights(currentCoin))
+                .catch(err => {
+                    console.error('Error refreshing insights:', err);
+                    showError('Failed to refresh insights. Please try again.', document.querySelector('.container-fluid'));
+                });
+            }
+        });
+    }
+    
+    coinAnalysisLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        const selectedCoin = coinSelector.value;
+        if (selectedCoin) {
+            showCoinAnalysis(selectedCoin);
+        } else {
+            alert('Please select a coin first');
+        }
+    });
+    
+    coinSelector.addEventListener('change', async () => {
+        const selectedCoin = coinSelector.value;
+        currentCoin = selectedCoin;  // Update current coin immediately
+        
+        if (!selectedCoin) {
+            // Show empty state messages
+            loadDashboardData();
+            return;
+        }
+
+        showLoading();
+        try {
+            if (dashboardView.style.display === 'none') {
+                await loadCoinAnalysis(selectedCoin);
+            } else {
+                await loadDashboardData(true);  // Force refresh for new coin
+            }
+        } catch (error) {
+            console.error('Error loading coin data:', error);
+            showError(`Failed to load data for ${selectedCoin}. Please try again.`, 
+                document.querySelector('.container-fluid'));
+            currentCoin = '';
+            coinSelector.value = '';
+        } finally {
+            hideLoading();
+        }
+    });
+    
+    // Add back navigation to dashboard
+    document.querySelectorAll('.navbar-brand, .nav-link').forEach(item => {
+        if (item.textContent.trim() === 'Dashboard') {
+            item.addEventListener('click', (event) => {
+                event.preventDefault();
+                showDashboard();
+            });
+        }
+    });
+    
+    // Handle window resize for charts
+    window.addEventListener('resize', () => {
+        // Resize all charts
+        const charts = [
+            'sentimentChart', 'topicChart', 'coinChart', 'timeSeriesChart',
+            'coinSentimentChart', 'coinTopicsChart'
+        ];
+        
+        charts.forEach(chartId => {
+            const chartDiv = document.getElementById(chartId);
+            if (chartDiv && chartDiv.data) {
+                Plotly.relayout(chartId, {
+                    'autosize': true
+                });
+            }
+        });
+    });
+
+    document.getElementById('coinSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const options = coinSelector.getElementsByTagName('option');
+        
+        for (let option of options) {
+            const coinName = option.textContent.toLowerCase();
+            option.style.display = coinName.includes(searchTerm) ? '' : 'none';
+        }
+    });
+});
+
+// Mock data for development/testing purposes
+function loadMockData() {
+    // Only use this function if API is not available
+    dashboardData = {
+        sentiment_distribution: {
+            positive: 45,
+            neutral: 30,
+            negative: 20,
+            warning: 5
+        },
+        topic_distribution: {
+            'price movement': 180,
+            'regulations': 120,
+            'adoption': 100,
+            'technology': 85,
+            'market analysis': 75,
+            'security': 60,
+            'partnerships': 55,
+            'future predictions': 50,
+            'mining': 45,
+            'development': 40
+        },
+        coin_distribution: {
+            'bitcoin': 220,
+            'ethereum': 180,
+            'xrp': 100,
+            'cardano': 90,
+            'solana': 85,
+            'polkadot': 70,
+            'dogecoin': 65,
+            'avalanche': 50,
+            'polygon': 45,
+            'uniswap': 40
+        },
+        time_series_data: [
+            { date: '2025-04-14', sentiment: 'positive', count: 30 },
+            { date: '2025-04-14', sentiment: 'neutral', count: 25 },
+            { date: '2025-04-14', sentiment: 'negative', count: 15 },
+            { date: '2025-04-14', sentiment: 'warning', count: 3 },
+            { date: '2025-04-15', sentiment: 'positive', count: 35 },
+            { date: '2025-04-15', sentiment: 'neutral', count: 22 },
+            { date: '2025-04-15', sentiment: 'negative', count: 18 },
+            { date: '2025-04-15', sentiment: 'warning', count: 4 },
+            { date: '2025-04-16', sentiment: 'positive', count: 40 },
+            { date: '2025-04-16', sentiment: 'neutral', count: 20 },
+            { date: '2025-04-16', sentiment: 'negative', count: 10 },
+            { date: '2025-04-16', sentiment: 'warning', count: 2 },
+            { date: '2025-04-17', sentiment: 'positive', count: 45 },
+            { date: '2025-04-17', sentiment: 'neutral', count: 25 },
+            { date: '2025-04-17', sentiment: 'negative', count: 15 },
+            { date: '2025-04-17', sentiment: 'warning', count: 5 },
+            { date: '2025-04-18', sentiment: 'positive', count: 50 },
+            { date: '2025-04-18', sentiment: 'neutral', count: 20 },
+            { date: '2025-04-18', sentiment: 'negative', count: 12 },
+            { date: '2025-04-18', sentiment: 'warning', count: 3 }
+        ],
+        latest_insights: [
+            {
+                message: "Breaking: SEC reportedly ready to approve Bitcoin ETF applications from multiple firms next week.",
+                sentiment: "positive",
+                urgent: true,
+                source: "twitter",
+                channel: "@CryptoInsider",
+                timestamp: "2025-04-18T14:23:00",
+                topics: ["regulations", "bitcoin", "investment"],
+                cryptocurrencies: ["bitcoin"]
+            },
+            {
+                message: "Major security vulnerability discovered in popular Ethereum DeFi protocol. Users advised to withdraw funds immediately.",
+                sentiment: "negative",
+                urgent: true,
+                source: "telegram",
+                channel: "DeFi Security Alerts",
+                timestamp: "2025-04-18T12:45:00",
+                topics: ["security", "defi", "vulnerability"],
+                cryptocurrencies: ["ethereum"]
+            },
+            {
+                message: "Cardano announces major partnership with African government for blockchain-based identity system.",
+                sentiment: "positive",
+                urgent: false,
+                source: "twitter",
+                channel: "@CardanoUpdate",
+                timestamp: "2025-04-18T10:15:00",
+                topics: ["partnerships", "adoption", "identity"],
+                cryptocurrencies: ["cardano"]
+            },
+            {
+                message: "Solana network experiencing congestion due to NFT launch. Transactions may be delayed.",
+                sentiment: "warning",
+                urgent: false,
+                source: "telegram",
+                channel: "Solana Updates",
+                timestamp: "2025-04-18T09:30:00",
+                topics: ["network issues", "nfts"],
+                cryptocurrencies: ["solana"]
+            },
+            {
+                message: "Technical analysis suggests Bitcoin might test support at $85,000 before continuing bullish trend.",
+                sentiment: "neutral",
+                urgent: false,
+                source: "twitter",
+                channel: "@CryptoCharts",
+                timestamp: "2025-04-18T08:45:00",
+                topics: ["technical analysis", "price movement"],
+                cryptocurrencies: ["bitcoin"]
+            }
+        ]
+    };
+    
+    // If you need coins data
+    const mockCoins = ["bitcoin", "ethereum", "ripple", "cardano", "solana", "dogecoin", "polkadot"];
+    
+    // Populate coin selector with mock data
+    coinSelector.innerHTML = '<option value="">Select a coin...</option>';
+    mockCoins.forEach(coin => {
+        const option = document.createElement('option');
+        option.value = coin;
+        option.textContent = coin.charAt(0).toUpperCase() + coin.slice(1);
+        coinSelector.appendChild(option);
+    });
+    
+    // Render dashboard with mock data
+    renderSentimentChart();
+    renderTopicChart();
+    renderCoinChart();
+    renderTimeSeriesChart();
+    renderLatestMessages();
+    renderUrgentMessages();
+}
+
+// Error handling function
+function handleApiError(error, component) {
+    console.error(`Error in ${component}:`, error);
+    
+    // Show error message to user
+    const errorMessage = `
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-heading">Error Loading Data</h4>
+            <p>There was an error loading the ${component} data. Please try refreshing or contact support if the problem persists.</p>
+        </div>
+    `;
+    
+    // Add error message to appropriate container
+    if (component === 'dashboard') {
+        dashboardView.innerHTML = errorMessage + dashboardView.innerHTML;
+    } else if (component === 'coin analysis') {
+        coinAnalysisView.innerHTML = errorMessage + coinAnalysisView.innerHTML;
+    }
+    
+    hideLoading();
+}
+
+// Initialize app with fallback to mock data if API is unavailable
+async function initializeApp() {
+    try {
+        await loadCoins();
+        // Don't load dashboard data until a coin is selected
+        dashboardView.querySelector('#sentimentChart').innerHTML = 
+            '<div class="text-center text-muted p-5">Select a coin to view sentiment analysis</div>';
+        dashboardView.querySelector('#topicChart').innerHTML = 
+            '<div class="text-center text-muted p-5">Select a coin to view topics</div>';
+        dashboardView.querySelector('#coinChart').innerHTML = 
+            '<div class="text-center text-muted p-5">Select a coin to view distribution</div>';
+        dashboardView.querySelector('#timeSeriesChart').innerHTML = 
+            '<div class="text-center text-muted p-5">Select a coin to view message volume</div>';
+        document.getElementById('latestMessages').innerHTML = 
+            '<div class="p-3 text-center text-muted">Select a coin to view messages</div>';
+        document.getElementById('urgentMessages').innerHTML = 
+            '<div class="p-3 text-center text-muted">Select a coin to view urgent messages</div>';
+        document.getElementById('urgentCount').textContent = '0';
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        showError('Failed to load application data. Please refresh the page.', document.querySelector('.container-fluid'));
+    } finally {
+        hideLoading();
+        
+        // Add back navigation
+        document.querySelector('.navbar-brand').addEventListener('click', (event) => {
+            event.preventDefault();
+            showDashboard();
+        });
+    }
+}
+
+// Start the application
+initializeApp();
+
+function showError(message, container) {
+    // Remove any existing error messages
+    const existingErrors = container.querySelectorAll('.alert-danger');
+    existingErrors.forEach(error => error.remove());
+
+    // Create new error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+    errorDiv.innerHTML = `
+        <strong>Error:</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    container.insertBefore(errorDiv, container.firstChild);
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (errorDiv && errorDiv.parentNode) {
+            errorDiv.remove();
+        }
+    }, 5000);
+}
+
+// Update the refresh insights event listener
+document.getElementById('refreshInsightsBtn').addEventListener('click', async () => {
+    if (!currentCoin) return;
+    
+    try {
+        // Show loading state
+        document.getElementById('aiInsightsLoading').style.display = 'block';
+        document.getElementById('aiInsightsContent').style.display = 'none';
+        
+        // Force refresh data with the selected coin
+        await fetch(`${API_BASE_URL}/api/sentiment?token=${encodeURIComponent(currentCoin)}&refresh=true`, {
+            method: 'GET'  // Changed from POST to GET
+        });
+        
+        // Get fresh insights
+        await loadAIInsights(currentCoin);
+    } catch (err) {
+        console.error('Error refreshing insights:', err);
+        showError('Failed to refresh insights. Please try again.', document.querySelector('.container-fluid'));
+    } finally {
+        document.getElementById('aiInsightsLoading').style.display = 'none';
+        document.getElementById('aiInsightsContent').style.display = 'block';
+    }
+});
+
+function getSentimentClass(score) {
+    if (score >= 7.5) return 'text-success fw-bold';
+    if (score >= 6.0) return 'text-success';
+    if (score >= 5.0) return 'text-success opacity-75';
+    if (score >= 4.0) return 'text-secondary';
+    if (score >= 3.0) return 'text-danger opacity-75';
+    if (score >= 2.0) return 'text-danger';
+    return 'text-danger fw-bold';
+}
+
+async function loadCoinAnalysis(coin) {
+    if (!coin) return;
+    
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/analyze?coin=${encodeURIComponent(coin)}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Update UI with coin data
+        document.getElementById('coinTitle').textContent = `${coin.toUpperCase()} Analysis`;
+        
+        // Update sentiment score with color coding
+        const scoreElement = document.getElementById('coinSentimentScore');
+        const labelElement = document.getElementById('coinSentimentLabel');
+        scoreElement.textContent = data.sentiment_score.toFixed(2);
+        scoreElement.className = getSentimentClass(data.sentiment_score);
+        
+        // Update sentiment label with matching color
+        labelElement.textContent = data.sentiment_label;
+        labelElement.className = `badge ${getSentimentClass(data.sentiment_score)}`;
+        
+        document.getElementById('coinMentions').textContent = data.total_mentions.toLocaleString();
+        
+        // Update momentum with color coding
+        const momentum = data.momentum;
+        const momentumElement = document.getElementById('coinMomentum');
+        const momentumTrend = document.getElementById('momentumTrend');
+        
+        momentumElement.textContent = `${momentum}%`;
+        momentumElement.className = momentum >= 0 ? 'text-success' : 'text-danger';
+        
+        // Update momentum trend icon
+        momentumTrend.innerHTML = momentum >= 0 
+            ? '<i class="bi bi-arrow-up-right text-success"></i> Increasing'
+            : '<i class="bi bi-arrow-down-right text-danger"></i> Decreasing';
+        
+        // Update charts
+        renderCoinSentimentChart(data.sentiment_distribution);
+        renderCoinTopicsChart(data.topics);
+        
+        // Update news
+        renderCoinLatestNews(data.latest_news);
+        
+        // Load AI insights
+        await loadAIInsights(coin);
+        
+        hideLoading();
+    } catch (error) {
+        console.error('Error loading coin analysis:', error);
+        showError('Failed to load coin analysis. Please try again.', document.querySelector('.container-fluid'));
+        showDashboard(); // Revert to dashboard view on error
+    }
+}
+</script>
+</body>
+</html>

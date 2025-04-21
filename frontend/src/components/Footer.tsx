@@ -11,10 +11,10 @@ const Footer: React.FC = () => {
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center space-x-2 text-2xl font-bold text-brand mb-4">
               <Shield className="h-7 w-7" />
-              <span className="font-display">AssureFi</span>
+              <span className="font-display">SecureFi</span>
             </Link>
             <p className="text-foreground/70 mb-6 max-w-md">
-              AssureFi combines smart contract analysis, liquidity monitoring, and social media sentiment to provide the most comprehensive risk assessment tool in DeFi.
+              SecureFi combines smart contract analysis, liquidity monitoring, and social media sentiment to provide the most comprehensive risk assessment tool in DeFi.
             </p>
             <div className="flex space-x-4">
               <a 
@@ -112,7 +112,7 @@ const Footer: React.FC = () => {
         
         <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-foreground/60 text-sm mb-4 md:mb-0">
-            &copy; {new Date().getFullYear()} AssureFi. All rights reserved.
+            &copy; {new Date().getFullYear()} SecureFi. All rights reserved.
           </p>
           <p className="text-foreground/60 text-sm flex items-center">
             Made with <Heart className="h-4 w-4 text-risk-high mx-1" /> for the DeFi community

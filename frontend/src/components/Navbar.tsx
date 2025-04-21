@@ -41,7 +41,7 @@ const Navbar: React.FC = () => {
           className="flex items-center space-x-2 text-2xl font-bold text-brand hover:text-brand-light transition-colors"
         >
           <Shield className="h-8 w-8" />
-          <span className="font-display">AssureFi</span>
+          <span className="font-display">SecureFi</span>
         </Link>
         
         {/* Desktop Navigation */}

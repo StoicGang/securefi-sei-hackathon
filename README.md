@@ -12,7 +12,7 @@ This project uses [Vite](https://vitejs.dev/) for fast development and hot modul
 Clone the repository using Git:
 
 ```sh
-git clone https://github.com/AshKatale/assure-fi.git
+git clone https://github.com/AshKatale/securefi.git
 cd frontend
 ```
 

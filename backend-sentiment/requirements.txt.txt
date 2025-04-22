@@ -1,10 +1,12 @@
 Flask
+Flask-CORS
 pandas
-nltk
 numpy
-scikit-learn
-gunicorn
-werkzeug
-flask-cors
 requests
+python-dotenv
+anthropic
+google-generativeai
+nltk
 textblob
+vaderSentiment
+gunicorn

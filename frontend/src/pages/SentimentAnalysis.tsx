@@ -38,7 +38,7 @@ import {
 } from "recharts";
 
 // Backend API URL
-const API_BASE_URL = 'https://securefi-2.onrender.com';
+const API_BASE_URL = https://securefi-2.onrender.com;
 
 const CryptoSentimentDashboard = () => {
   const [coinList, setCoinList] = useState([]);

@@ -42,6 +42,7 @@ const API_BASE_URL = 'https://securefi-2.onrender.com';
 
 const CryptoSentimentDashboard = () => {
   const [coinList, setCoinList] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCoin, setSelectedCoin] = useState('bitcoin');
   const [sentimentData, setSentimentData] = useState(null);
   const [tweets, setTweets] = useState([]);
@@ -50,6 +51,7 @@ const CryptoSentimentDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [dashboardData, setDashboardData] = useState(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Load available coins on component mount
   useEffect(() => {
@@ -57,11 +59,38 @@ const CryptoSentimentDashboard = () => {
     loadCoins();
   }, []);
 
+  // Handle clicking outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.search-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Load coins list from API
   const loadCoins = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/coins`);
-      const coins = await response.json();
+      let coins = await response.json();
+      
+      // Add additional coins if they're not already in the list
+      const additionalCoins = [
+        'bitcoin', 'ethereum', 'ripple', 'cardano', 'solana',
+        'dogecoin', 'polkadot', 'litecoin', 'chainlink', 'avalanche',
+        'cosmos', 'monero', 'algorand', 'tezos', 'tron',
+        'stellar', 'vechain', 'uniswap', 'makers', 'filecoin'
+      ];
+      
+      additionalCoins.forEach(coin => {
+        if (!coins.includes(coin)) {
+          coins.push(coin);
+        }
+      });
+
       setCoinList(coins.map(coin => ({
         id: coin,
         name: coin.charAt(0).toUpperCase() + coin.slice(1),
@@ -74,7 +103,33 @@ const CryptoSentimentDashboard = () => {
       }
     } catch (error) {
       console.error('Error loading coins:', error);
+      // Fallback coins if API fails
+      const fallbackCoins = [
+        'bitcoin', 'ethereum', 'ripple', 'cardano', 'solana',
+        'dogecoin', 'polkadot', 'litecoin', 'chainlink', 'avalanche',
+        'cosmos', 'monero', 'algorand', 'tezos', 'tron',
+        'stellar', 'vechain', 'uniswap', 'makers', 'filecoin'
+      ];
+      setCoinList(fallbackCoins.map(coin => ({
+        id: coin,
+        name: coin.charAt(0).toUpperCase() + coin.slice(1),
+        symbol: coin.toUpperCase()
+      })));
     }
+  };
+
+  // Filter coins based on search term
+  const filteredCoins = coinList.filter(coin => 
+    coin.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    coin.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Handle coin selection
+  const handleCoinSelect = (coin) => {
+    setSelectedCoin(coin.id);
+    setSearchTerm(coin.name);
+    setShowSuggestions(false);
+    fetchCoinData(coin.id);
   };
 
   // Fetch coin data from backend
@@ -212,196 +267,7 @@ const CryptoSentimentDashboard = () => {
                 {(geminiInsights?.sentimentMetrics?.overallScore || 7.8).toFixed(1)}
                 <span className="text-sm font-normal text-gray-400">/10</span>
               </div>
-  );
-
-  const renderInsightsTab = () => (
-    <div className="space-y-6">
-      {/* Summary Card */}
-      <Card className="border border-gray-800 bg-gray-900/90 backdrop-blur-sm rounded-xl">
-        <CardHeader className="p-6 border-b border-gray-800">
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center text-white">
-              <Sparkles className="h-5 w-5 mr-2" />
-              Gemini AI Market Insights
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <Loader className="h-10 w-10 text-blue-500 animate-spin" />
-            </div>
-          ) : geminiInsights ? (
-            <div className="space-y-6">
-              {/* Summary Box */}
-              <div className="bg-gray-800/50 rounded-lg p-6">
-                <p className="text-sm text-gray-300">{geminiInsights.summary}</p>
-              </div>
-              
-              {/* Key Insights and Risks Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Key Insights */}
-                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
-                  <h4 className="text-sm font-semibold text-green-400 mb-4 flex items-center">
-                    <ThumbsUp className="h-4 w-4 mr-2" />
-                    Key Bullish Factors
-                  </h4>
-                  <ul className="space-y-3">
-                    {geminiInsights.keyInsights.map((insight, index) => (
-                      <li key={index} className="flex items-start text-sm text-green-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        {insight}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* Risk Factors */}
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-                  <h4 className="text-sm font-semibold text-red-400 mb-4 flex items-center">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Risk Factors
-                  </h4>
-                  <ul className="space-y-3">
-                    {geminiInsights.risks.map((risk, index) => (
-                      <li key={index} className="flex items-start text-sm text-red-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {risk}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              
-              {/* Price Predictions Card */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
-                <h4 className="text-sm font-semibold text-blue-400 mb-4 flex items-center">
-                  <LineChart className="h-4 w-4 mr-2" />
-                  Price Predictions
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Short Term */}
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-xs text-gray-400 mb-1">Short Term</div>
-                    <div className="text-sm font-medium text-gray-200">{geminiInsights.prediction.shortTerm}</div>
-                  </div>
-                  
-                  {/* Medium Term */}
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-xs text-gray-400 mb-1">Medium Term</div>
-                    <div className="text-sm font-medium text-gray-200">{geminiInsights.prediction.mediumTerm}</div>
-                  </div>
-                  
-                  {/* Confidence */}
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-xs text-gray-400 mb-1">Prediction Confidence</div>
-                    <div className="flex items-center">
-                      <div className="text-sm font-medium text-gray-200">{geminiInsights.prediction.confidence}%</div>
-                      <div className="ml-2 flex-1">
-                        <Progress value={geminiInsights.prediction.confidence} className="h-2 bg-gray-700" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-              <Sparkles className="h-12 w-12 mb-4 text-gray-600" />
-              <p>No AI insights available for {selectedCoin}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  return (
-    <DashboardLayout title="Sentiment Analysis" description="Analyze market sentiment and social metrics">
-      {/* Token Selection Section */}
-      <div className="mb-8 max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2 text-white">Select Token</h1>
-        <p className="text-gray-400 mb-4">
-          Choose a token to analyze its sentiment and social metrics.
-        </p>
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <select
-              className="w-full px-4 py-3 rounded-lg border border-blue-500 bg-gray-900/90 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedCoin}
-              onChange={(e) => {
-                setSelectedCoin(e.target.value);
-                fetchCoinData(e.target.value);
-              }}
-            >
-              {coinList.map((coin) => (
-                <option 
-                  key={coin.id} 
-                  value={coin.id}
-                  className="bg-gray-900 text-white"
-                >
-                  {coin.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            onClick={() => fetchCoinData(selectedCoin)}
-            disabled={loading}
-            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader className="h-5 w-5 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                Analyze
-                <Search className="h-5 w-5" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div>
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="bg-gray-900/50 border border-gray-800 mb-6 backdrop-blur-sm">
-            <TabsTrigger 
-              value="overview" 
-              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger 
-              value="social" 
-              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
-            >
-              Social Analysis
-            </TabsTrigger>
-            <TabsTrigger 
-              value="insights" 
-              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400"
-            >
-              AI Insights
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
-          <TabsContent value="social">{renderSocialTab()}</TabsContent>
-          <TabsContent value="insights">{renderInsightsTab()}</TabsContent>
-        </Tabs>
-      </div>
-    </DashboardLayout>
-  );
-};
-
-export default CryptoSentimentDashboard;            <div className={`text-lg font-semibold flex items-center ${
+              <div className={`text-lg font-semibold flex items-center ${
                 (geminiInsights?.sentimentMetrics?.overallScore || 7.8) > 6.5 ? "text-green-500" : 
                 (geminiInsights?.sentimentMetrics?.overallScore || 7.8) < 4.5 ? "text-red-500" : 
                 "text-yellow-500"
@@ -736,51 +602,4 @@ export default CryptoSentimentDashboard;            <div className={`text-lg fon
                 <Loader className="h-10 w-10 text-blue-500 animate-spin" />
               </div>
             ) : telegramData.length > 0 ? (
-              <div className="divide-y divide-gray-800">
-                {telegramData.map((message, index) => (
-                  <div key={index} className="p-6 hover:bg-gray-800/50 transition-colors">
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <MessageCircle className="h-6 w-6 text-blue-400" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-                          <div>
-                            <p className="text-sm font-bold text-white">@{message.username}</p>
-                            <p className="text-xs text-gray-500">
-                              {message.groupName} • {message.memberCount.toLocaleString()} members
-                            </p>
-                          </div>
-                          {message.sentiment && (
-                            <span className={`text-xs mt-1 sm:mt-0 ${
-                              message.sentiment === "positive" ? "text-green-500" :
-                              message.sentiment === "negative" ? "text-red-500" :
-                              "text-yellow-500"
-                            }`}>
-                              {message.sentiment}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-300 mt-2">{message.content}</p>
-                        {message.timestamp && (
-                          <p className="text-xs text-gray-500 mt-2">
-                            {new Date(message.timestamp).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                <MessageCircle className="h-12 w-12 mb-4 text-gray-600" />
-                <p>No Telegram data found for {selectedCoin}</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </Card>
-    </div>
+              <div className="divide-

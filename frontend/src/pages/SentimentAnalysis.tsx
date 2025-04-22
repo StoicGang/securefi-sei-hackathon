@@ -37,130 +37,52 @@ import {
 } from "recharts";
 import RiskScoreCircle from "@/components/RiskScoreCircle";
 
-// Backend API URL - Replace with your deployed server URL
-const API_BASE_URL = 'https://securefi-2.onrender.com';
+// Import mock data from separate file
+import { 
+  mockCoinData, 
+  mockTwitterData, 
+  mockTelegramData, 
+  mockGeminiInsights,
+  mockSentimentData 
+} from "../data/mockData.js";
 
 const CryptoSentimentDashboard = () => {
-  const [coinList, setCoinList] = useState([]);
-  const [selectedCoin, setSelectedCoin] = useState('bitcoin');
-  const [sentimentData, setSentimentData] = useState(null);
-  const [tweets, setTweets] = useState([]);
-  const [telegramData, setTelegramData] = useState([]);
-  const [geminiInsights, setGeminiInsights] = useState(null);
+  const [selectedCoin, setSelectedCoin] = useState(mockCoinData[0]);
+  const [sentimentData, setSentimentData] = useState(mockSentimentData);
+  const [tweets, setTweets] = useState(mockTwitterData);
+  const [telegramData, setTelegramData] = useState(mockTelegramData);
+  const [geminiInsights, setGeminiInsights] = useState(mockGeminiInsights.bitcoin);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [dashboardData, setDashboardData] = useState(null);
 
-  // Load available coins on component mount
   useEffect(() => {
     document.title = "Cryptocurrency Market - SafeFund Guardian";
-    loadCoins();
   }, []);
 
-  // Load coins list from API
-  const loadCoins = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/coins`);
-      const coins = await response.json();
-      setCoinList(coins.map(coin => ({
-        id: coin,
-        name: coin.charAt(0).toUpperCase() + coin.slice(1),
-        symbol: coin.toUpperCase()
-      })));
-      
-      // Set first coin as default
-      if (coins.length > 0) {
-        setSelectedCoin(coins[0]);
-      }
-    } catch (error) {
-      console.error('Error loading coins:', error);
-    }
-  };
-
-  // Fetch coin data from backend
-  const fetchCoinData = async (coin) => {
+  // Function to update data when coin selection changes
+  const fetchCoinData = (coin) => {
     setLoading(true);
-    try {
-      // Fetch sentiment analysis
-      const sentimentResponse = await fetch(`${API_BASE_URL}/api/sentiment?token=${encodeURIComponent(coin)}`);
-      const sentimentData = await sentimentResponse.json();
+    
+    // Use the mock data based on selected coin
+    setTimeout(() => {
+      setSentimentData(mockSentimentData);
+      setTweets(mockTwitterData);
+      setTelegramData(mockTelegramData);
       
-      // Fetch coin analysis
-      const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze?coin=${encodeURIComponent(coin)}`);
-      const analysisData = await analysisResponse.json();
+      // Get the corresponding insights for the selected coin
+      if (coin.id === "bitcoin") {
+        setGeminiInsights(mockGeminiInsights.bitcoin);
+      } else if (coin.id === "ethereum") {
+        setGeminiInsights(mockGeminiInsights.ethereum);
+      } else if (coin.id === "binancecoin") {
+        setGeminiInsights(mockGeminiInsights.binancecoin);
+      } else {
+        // Default to Bitcoin if no match
+        setGeminiInsights(mockGeminiInsights.bitcoin);
+      }
       
-      // Fetch dashboard data
-      const dataResponse = await fetch(`${API_BASE_URL}/api/data?coin=${encodeURIComponent(coin)}`);
-      const dashboardData = await dataResponse.json();
-
-      // Update state with fetched data
-      setSentimentData({
-        average_sentiment: analysisData.sentiment_score / 10, // Convert to -1 to 1 scale
-        sentiment_distribution: {
-          Positive: analysisData.sentiment_distribution?.positive || 0,
-          Neutral: analysisData.sentiment_distribution?.neutral || 0,
-          Negative: analysisData.sentiment_distribution?.negative || 0
-        },
-        total_mentions: analysisData.total_mentions,
-        momentum: analysisData.momentum,
-        analysis_time: new Date().toISOString()
-      });
-
-      // Extract messages for Twitter and Telegram
-      const messages = sentimentData.social_analysis?.twitter?.messages || [];
-      const telegramMessages = sentimentData.social_analysis?.telegram?.messages || [];
-
-      setTweets(messages.slice(0, 5).map(msg => ({
-        username: msg.username || 'user' + Math.floor(Math.random() * 1000),
-        content: msg.message,
-        sentiment: msg.sentiment_label.toLowerCase(),
-        timestamp: msg.timestamp ? new Date(msg.timestamp * 1000).toISOString() : new Date().toISOString()
-      })));
-
-      setTelegramData(telegramMessages.slice(0, 5).map(msg => ({
-        username: msg.username || 'user' + Math.floor(Math.random() * 1000),
-        content: msg.message,
-        groupName: msg.channel || 'Crypto Community',
-        memberCount: Math.floor(Math.random() * 10000) + 1000,
-        sentiment: msg.sentiment_label.toLowerCase(),
-        timestamp: msg.timestamp ? new Date(msg.timestamp * 1000).toISOString() : new Date().toISOString()
-      })));
-
-      // Set Gemini insights
-      const insights = sentimentData.ai_insights;
-      setGeminiInsights({
-        summary: insights.summary || 'No summary available',
-        keyInsights: insights.key_factors?.map(factor => factor.text) || [],
-        risks: insights.risk_factors?.map(factor => factor.text) || [],
-        prediction: {
-          shortTerm: insights.prediction || 'No prediction available',
-          mediumTerm: 'Analysis pending',
-          confidence: 75
-        },
-        sentimentMetrics: {
-          overallScore: sentimentData.overview?.overall_sentiment?.score || 7.8,
-          twitterSentiment: sentimentData.social_analysis?.twitter?.score || 8.2,
-          telegramSentiment: sentimentData.social_analysis?.telegram?.score || 7.9
-        },
-        technicalAnalysis: {
-          trend: sentimentData.overview?.technical_trend?.trend || 'Bullish',
-          riskLevel: sentimentData.overview?.risk_level?.level || 'Moderate',
-          strongSupport: sentimentData.overview?.technical_trend?.support || 0,
-          strongResistance: sentimentData.overview?.technical_trend?.resistance || 0
-        },
-        priceCorrelations: [
-          { asset: "S&P 500", correlation: 0.65 },
-          { asset: "Gold", correlation: 0.12 },
-          { asset: "DXY", correlation: -0.45 }
-        ]
-      });
-
-      setDashboardData(dashboardData);
-    } catch (error) {
-      console.error('Error fetching coin data:', error);
-    } finally {
       setLoading(false);
-    }
+    }, 500); // Simulate API loading
   };
 
   // Determine sentiment color based on value
@@ -326,8 +248,8 @@ const CryptoSentimentDashboard = () => {
           <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
             <div className="flex justify-between items-center">
               <CardTitle className="flex items-center">
-                <div className="mr-2 font-bold text-lg">{selectedCoin.charAt(0).toUpperCase() + selectedCoin.slice(1)}</div>
-                <div className="text-sm opacity-90 bg-white/20 px-2 py-1 rounded">{selectedCoin.toUpperCase()}</div>
+                <div className="mr-2 font-bold text-lg">{selectedCoin.name}</div>
+                <div className="text-sm opacity-90 bg-white/20 px-2 py-1 rounded">{selectedCoin.symbol}</div>
               </CardTitle>
               <PieChart className="h-5 w-5 opacity-75" />
             </div>
@@ -512,7 +434,7 @@ const CryptoSentimentDashboard = () => {
             ) : (
               <div className="flex flex-col items-center justify-center py-10 text-gray-500">
                 <Sparkles className="h-12 w-12 mb-4 text-gray-400" />
-                <p>No AI insights available for {selectedCoin}</p>
+                <p>No AI insights available for {selectedCoin.name}</p>
               </div>
             )}
           </CardContent>
@@ -529,7 +451,7 @@ const CryptoSentimentDashboard = () => {
             </CardTitle>
           </div>
           <CardDescription className="text-blue-100 mt-1">
-            Relationship between {selectedCoin.charAt(0).toUpperCase() + selectedCoin.slice(1)} and other assets
+            Relationship between {selectedCoin.name} and other assets
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
@@ -568,7 +490,7 @@ const CryptoSentimentDashboard = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-gray-500">
               <BarChart3 className="h-12 w-12 mb-4 text-gray-400" />
-              <p>No correlation data available for {selectedCoin}</p>
+              <p>No correlation data available for {selectedCoin.name}</p>
             </div>
           )}
         </CardContent>
@@ -651,7 +573,7 @@ const CryptoSentimentDashboard = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22 5.8a8.49 8.49 0 0 1-2.36.64 4.13 4.13 0 0 0 1.81-2.27 8.21 8.21 0 0 1-2.61 1 4.1 4.1 0 0 0-7 3.74 11.64 11.64 0 0 1-8.45-4.29 4.16 4.16 0 0 0-.55 2.07 4.09 4.09 0 0 0 1.82 3.41 4.05 4.05 0 0 1-1.86-.51v.05a4.1 4.1 0 0 0 3.3 4 3.93 3.93 0 0 1-1.1.17 4.9 4.9 0 0 1-.77-.07 4.11 4.11 0 0 0 3.83 2.84A8.22 8.22 0 0 1 3 18.34a7.93 7.93 0 0 1-1-.06 11.57 11.57 0 0 0 6.29 1.85A11.59 11.59 0 0 0 20 8.45v-.53a8.43 8.43 0 0 0 2-2.12Z" />
                 </svg>
-                Recent Tweets about {selectedCoin.charAt(0).toUpperCase() + selectedCoin.slice(1)}
+                Recent Tweets about {selectedCoin.name}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -662,6 +584,7 @@ const CryptoSentimentDashboard = () => {
               ) : tweets.length > 0 ? (
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {tweets.map((tweet, index) => {
+                    // Determine sentiment color if available
                     const sentimentColor = tweet.sentiment === "positive" ? "text-green-500" :
                                           tweet.sentiment === "negative" ? "text-red-500" :
                                           "text-yellow-500";
@@ -703,7 +626,7 @@ const CryptoSentimentDashboard = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <p>No recent tweets found for {selectedCoin}</p>
+                  <p>No recent tweets found for {selectedCoin.name}</p>
                 </div>
               )}
             </CardContent>
@@ -726,6 +649,7 @@ const CryptoSentimentDashboard = () => {
               ) : telegramData.length > 0 ? (
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {telegramData.map((message, index) => {
+                    // Determine sentiment color
                     const sentimentColor = message.sentiment === "positive" ? "text-green-500" :
                                           message.sentiment === "negative" ? "text-red-500" :
                                           "text-yellow-500";
@@ -770,7 +694,7 @@ const CryptoSentimentDashboard = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-gray-500">
                   <MessageCircle className="h-12 w-12 mb-4 text-gray-400" />
-                  <p>No Telegram data found for {selectedCoin}</p>
+                  <p>No Telegram data found for {selectedCoin.name}</p>
                 </div>
               )}
             </CardContent>
@@ -792,7 +716,7 @@ const CryptoSentimentDashboard = () => {
             </CardTitle>
           </div>
           <CardDescription className="text-indigo-100 mt-1">
-            Advanced AI analysis for {selectedCoin.charAt(0).toUpperCase() + selectedCoin.slice(1)}
+            Advanced AI analysis for {selectedCoin.name}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -892,7 +816,7 @@ const CryptoSentimentDashboard = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-gray-500">
               <Sparkles className="h-12 w-12 mb-4 text-gray-400" />
-              <p>No AI insights available for {selectedCoin}</p>
+              <p>No AI insights available for {selectedCoin.name}</p>
             </div>
           )}
         </CardContent>
@@ -911,13 +835,16 @@ const CryptoSentimentDashboard = () => {
         <div className="flex gap-2">
           <select
             className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedCoin}
+            value={selectedCoin.id}
             onChange={(e) => {
-              setSelectedCoin(e.target.value);
-              fetchCoinData(e.target.value);
+              const coin = mockCoinData.find(c => c.id === e.target.value);
+              if (coin) {
+                setSelectedCoin(coin);
+                fetchCoinData(coin);
+              }
             }}
           >
-            {coinList.map((coin) => (
+            {mockCoinData.map((coin) => (
               <option 
                 key={coin.id} 
                 value={coin.id}

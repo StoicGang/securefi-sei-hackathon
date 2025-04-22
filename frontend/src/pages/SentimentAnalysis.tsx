@@ -38,7 +38,7 @@ import {
 import RiskScoreCircle from "@/components/RiskScoreCircle";
 
 // Backend API URL - Replace with your deployed server URL
-const API_BASE_URL = 'YOUR_DEPLOYED_SERVER_URL';
+const API_BASE_URL = 'https://securefi-2.onrender.com';
 
 const CryptoSentimentDashboard = () => {
   const [coinList, setCoinList] = useState([]);
